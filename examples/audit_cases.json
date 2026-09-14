@@ -3,7 +3,13 @@
   "name": "two-case-demo",
   "description": "Small synthetic audit for learning the protocol; not a scientific benchmark.",
   "abstention_answers": [
-    "INSUFFICIENT"
+    "INSUFFICIENT",
+    "not specified",
+    "not provided",
+    "cannot determine",
+    "cannot be determined",
+    "unable to determine",
+    "indeterminate"
   ],
   "metadata": {
     "license": "MIT",

@@ -97,11 +97,18 @@ def _parse_case(raw: Any, index: int) -> AuditCase:
     _known_keys(value, CASE_KEYS, path)
     world0 = _documents(value.get("world0"), f"{path}.world0")
     world1 = _documents(value.get("world1"), f"{path}.world1")
-    ids0 = {document.id for document in world0}
-    ids1 = {document.id for document in world1}
+    ordered_ids0 = tuple(document.id for document in world0)
+    ordered_ids1 = tuple(document.id for document in world1)
+    ids0 = set(ordered_ids0)
+    ids1 = set(ordered_ids1)
     if ids0 != ids1:
         raise DatasetValidationError(
             f"{path} worlds must contain the same document IDs; use text interventions"
+        )
+    if ordered_ids0 != ordered_ids1:
+        raise DatasetValidationError(
+            f"{path} worlds must keep document IDs in the same order; "
+            "evaluate order permutations as a separate nuisance condition"
         )
 
     answers = _mapping(value.get("answers"), f"{path}.answers")
@@ -238,7 +245,15 @@ def dataset_from_mapping(raw: Mapping[str, Any]) -> AuditDataset:
     abstentions = _string_tuple(
         value.get(
             "abstention_answers",
-            ["INSUFFICIENT", "UNKNOWN", "NOT ENOUGH INFORMATION"],
+            [
+                "INSUFFICIENT",
+                "not specified",
+                "not provided",
+                "cannot determine",
+                "cannot be determined",
+                "unable to determine",
+                "indeterminate",
+            ],
         ),
         "dataset.abstention_answers",
         allow_empty=False,

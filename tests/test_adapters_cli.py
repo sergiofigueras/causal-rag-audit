@@ -107,12 +107,15 @@ class CliTests(unittest.TestCase):
                     str(output),
                     "--minimum",
                     "strict_causal_evidence_score=1",
+                    "--minimum",
+                    "world0_proof_citation_precision=1",
                 ]
             )
             self.assertEqual(status, 0)
             self.assertTrue((output / "report.json").is_file())
             self.assertTrue((output / "report.md").is_file())
             self.assertIn("strict_causal_evidence_score: 2/2", stdout)
+            self.assertIn("world0_proof_citation_precision: 100.0%", stdout)
             self.assertEqual(stderr, "")
 
     def test_failed_threshold_returns_two_but_still_writes_evidence(self) -> None:

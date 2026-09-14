@@ -6,7 +6,7 @@ The code can enforce structural invariants, but scientific validity depends on c
 
 1. **Fix the question and task contract.** Prefer one short, objectively scorable answer. State what counts as abstention before running targets.
 2. **Construct world 0.** Include all and only the context that the target would legitimately receive. Mark a minimal set of document IDs sufficient for the answer.
-3. **Construct world 1.** Keep the question and document IDs fixed. Change the smallest evidence unit that coherently makes a distinct answer correct. Declare every changed document as causal or nuisance.
+3. **Construct world 1.** Keep the question and ordered document IDs fixed. Change the smallest evidence unit that coherently makes a distinct answer correct. Declare every changed document as causal or nuisance. Test order permutations separately rather than mixing them into the answer-changing pair.
 4. **Re-annotate the proof.** Do not assume the world-0 proof remains valid; record a minimal proof for each world independently.
 5. **Construct the ablation.** Remove one or more world-0 proof documents such that no retained document, metadata field, or simple combination still reveals the answer.
 6. **Add nuisance changes only for a reason.** A nuisance change may control superficial cues, but it cannot belong to either proof. Balance nuisance patterns across the dataset.

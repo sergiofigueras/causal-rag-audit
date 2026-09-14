@@ -51,9 +51,11 @@
         "id": {"$ref": "#/$defs/nonEmptyString"},
         "question": {"$ref": "#/$defs/nonEmptyString"},
         "world0": {
+          "description": "Original evidence bundle. Document ID order must match world1; enforced by the CLI validator.",
           "type": "array", "minItems": 1, "items": {"$ref": "#/$defs/document"}
         },
         "world1": {
+          "description": "Counterfactual evidence bundle with the same document IDs in the same order as world0.",
           "type": "array", "minItems": 1, "items": {"$ref": "#/$defs/document"}
         },
         "answers": {

@@ -5,11 +5,7 @@ import unittest
 from pathlib import Path
 
 from causal_rag_audit import AuditRunner, TargetResponse, audit, load_dataset
-from causal_rag_audit.runner import (
-    ResponseFormatError,
-    coerce_response,
-    dataset_fingerprint,
-)
+from causal_rag_audit.runner import coerce_response, dataset_fingerprint
 from examples.demo_rag import grounded_rag, shortcut_rag
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,6 +17,9 @@ class RunnerTests(unittest.TestCase):
         report = audit(grounded_rag, DATASET, target_name="grounded-demo")
         self.assertEqual(report.error_count, 0)
         self.assertTrue(all(metric.rate == 1.0 for metric in report.metrics.values()))
+        self.assertTrue(
+            all(metric.mean == 1.0 for metric in report.proof_metrics.values())
+        )
         self.assertEqual(report.configuration["calls"], 6)
 
     def test_shortcut_can_pass_observational_support_but_fail_causal_scores(
@@ -44,6 +43,11 @@ class RunnerTests(unittest.TestCase):
         report = audit(overciting, DATASET)
         self.assertEqual(report.metrics["coverage_causal_evidence_score"].rate, 1.0)
         self.assertEqual(report.metrics["strict_causal_evidence_score"].rate, 0.0)
+        self.assertEqual(report.proof_metrics["world0_proof_citation_recall"].mean, 1.0)
+        self.assertAlmostEqual(
+            report.proof_metrics["world0_proof_citation_precision"].mean,
+            (1 / 2 + 2 / 3) / 2,
+        )
 
     def test_removed_document_cannot_be_cited_in_ablated_world(self) -> None:
         def invalid_ablation_citation(request):
@@ -69,11 +73,11 @@ class RunnerTests(unittest.TestCase):
     def test_raw_response_is_opt_in(self) -> None:
         def mapping_target(request):
             response = grounded_rag(request)
-            return {
-                "answer": response.answer,
-                "citations": list(response.citations),
-                "trace": "private",
-            }
+            return TargetResponse(
+                response.answer,
+                response.citations,
+                raw={"trace": "private"},
+            )
 
         excluded = audit(mapping_target, DATASET)
         included = audit(mapping_target, DATASET, include_raw=True)
@@ -104,9 +108,10 @@ class RunnerTests(unittest.TestCase):
         )
         self.assertEqual(len(dataset_fingerprint(DATASET)), 64)
 
-    def test_response_contract_rejects_duplicate_citations(self) -> None:
-        with self.assertRaisesRegex(ResponseFormatError, "duplicates"):
-            coerce_response({"answer": "x", "citations": ["D1", "D1"]})
+    def test_paper_profile_treats_duplicate_citations_as_a_set(self) -> None:
+        response = coerce_response({"answer": "x", "citations": ["D1", "D1"]})
+        self.assertEqual(response.citations, ("D1",))
+        self.assertTrue(response.format_valid)
 
     def test_async_target_is_reported_as_unsupported(self) -> None:
         async def async_target(_request):

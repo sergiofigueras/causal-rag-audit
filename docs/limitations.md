@@ -23,7 +23,7 @@ It is strongest as a paired regression test: the question and most context remai
 
 - Python 3.10+ and synchronous target callables; HTTP services may implement their internals asynchronously.
 - JSON datasets and JSON/Markdown reports.
-- Short-answer exact matching after Unicode, case, punctuation, and whitespace normalization. Synonyms must be independently declared as aliases.
+- Two versioned built-in policies: paper-compatible candidate/marker matching for `D<number>` citations and strict exact matching for arbitrary stable IDs. Synonyms still require independent aliases or a preregistered custom judge.
 - Document-level citations identified by exact stable strings.
 - One ablation derived from world 0 per case.
 - No built-in model provider, prompt, retriever, vector store, judge model, randomization scheduler, repeated-run estimator, or experiment tracker.

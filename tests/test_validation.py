@@ -57,6 +57,11 @@ class DatasetValidationTests(unittest.TestCase):
         mapping["cases"][0]["world0"][1]["id"] = "D1"
         self.assert_invalid(mapping, "document IDs must be unique")
 
+    def test_document_order_must_remain_fixed_across_paired_worlds(self) -> None:
+        mapping = example_mapping()
+        mapping["cases"][0]["world1"].reverse()
+        self.assert_invalid(mapping, "same order")
+
     def test_answer_aliases_cannot_overlap_between_worlds(self) -> None:
         mapping = example_mapping()
         mapping["cases"][0]["answer_aliases"]["world1"] = ["ARGON X"]

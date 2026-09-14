@@ -4,10 +4,27 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Any
 
-from .models import AuditCase, CaseResult, MetricResult, ScoredResponse, TargetResponse
+from .models import (
+    AuditCase,
+    CaseResult,
+    MeanMetricResult,
+    MetricResult,
+    ScoredResponse,
+    TargetResponse,
+)
+
+PAPER_PROFILE = "paper-v0.1"
+STRICT_PROFILE = "strict-exact"
+SCORING_PROFILES = (PAPER_PROFILE, STRICT_PROFILE)
+
+AnswerJudge = Callable[
+    [str, str, tuple[str, ...], tuple[str, ...]],
+    bool,
+]
+AbstentionJudge = Callable[[str, tuple[str, ...]], bool]
 
 METRIC_NAMES = (
     "world0_accuracy",
@@ -21,6 +38,15 @@ METRIC_NAMES = (
     "format_validity",
 )
 
+PROOF_METRIC_NAMES = (
+    "world0_proof_citation_recall",
+    "world0_proof_citation_precision",
+    "world1_proof_citation_recall",
+    "world1_proof_citation_precision",
+)
+
+ALL_METRIC_NAMES = (*METRIC_NAMES, *PROOF_METRIC_NAMES)
+
 
 def canonical_answer(value: str) -> str:
     """Normalize an answer for conservative exact matching."""
@@ -28,6 +54,12 @@ def canonical_answer(value: str) -> str:
     normalized = unicodedata.normalize("NFKC", value).casefold().strip()
     normalized = re.sub(r"[^\w]+", " ", normalized, flags=re.UNICODE)
     return " ".join(normalized.split())
+
+
+def paper_canonical_answer(value: str) -> str:
+    """Match the alphanumeric normalization used by the paper's pilot scorer."""
+
+    return re.sub(r"[^a-z0-9]+", "", value.casefold())
 
 
 def answer_matches(actual: str, expected: str, aliases: tuple[str, ...] = ()) -> bool:
@@ -41,11 +73,57 @@ def answer_matches(actual: str, expected: str, aliases: tuple[str, ...] = ()) ->
     return bool(candidate) and candidate in accepted
 
 
+def paper_answer_matches(
+    actual: str,
+    expected: str,
+    aliases: tuple[str, ...] = (),
+    alternatives: tuple[str, ...] = (),
+) -> bool:
+    """Apply the paper's fixed candidate-in-wrapper matching rule."""
+
+    answer_key = paper_canonical_answer(actual)
+    accepted = tuple(
+        key
+        for key in (
+            paper_canonical_answer(expected),
+            *(paper_canonical_answer(alias) for alias in aliases),
+        )
+        if key
+    )
+    if not any(candidate in answer_key for candidate in accepted):
+        return False
+    alternative_keys = {
+        paper_canonical_answer(alternative)
+        for alternative in alternatives
+        if paper_canonical_answer(alternative) not in accepted
+    }
+    return not any(key and key in answer_key for key in alternative_keys)
+
+
 def is_abstention(actual: str, abstention_answers: tuple[str, ...]) -> bool:
     """Return whether the answer matches a predeclared abstention form."""
 
     candidate = canonical_answer(actual)
     return candidate in {canonical_answer(answer) for answer in abstention_answers}
+
+
+def paper_is_abstention(actual: str, abstention_answers: tuple[str, ...]) -> bool:
+    """Recognize a predeclared paper-style abstention marker inside a response."""
+
+    candidate = paper_canonical_answer(actual)
+    markers = {paper_canonical_answer(answer) for answer in abstention_answers}
+    return any(marker and marker in candidate for marker in markers)
+
+
+def validate_scoring_profile(scoring_profile: str) -> str:
+    """Return a known scoring profile or raise a configuration error."""
+
+    if scoring_profile not in SCORING_PROFILES:
+        raise ValueError(
+            f"unknown scoring profile {scoring_profile!r}; "
+            f"choose from {', '.join(SCORING_PROFILES)}"
+        )
+    return scoring_profile
 
 
 def score_response(
@@ -57,6 +135,9 @@ def score_response(
     *,
     error: str | None = None,
     include_raw: bool = False,
+    scoring_profile: str = PAPER_PROFILE,
+    answer_judge: AnswerJudge | None = None,
+    abstention_judge: AbstentionJudge | None = None,
 ) -> ScoredResponse:
     """Recompute every row-level score from one normalized target response."""
 
@@ -73,16 +154,51 @@ def score_response(
         answer = response.answer
         citations = response.citations
         raw = response.raw if include_raw else None
-        format_valid = error is None
+        format_valid = response.format_valid
 
-    abstained = is_abstention(answer, abstention_answers)
-    correct = (
-        abstained
-        if condition == "ablated"
-        else answer_matches(answer, expected or "", case.aliases_for(condition))
+    profile = validate_scoring_profile(scoring_profile)
+    abstained = (
+        abstention_judge(answer, abstention_answers)
+        if abstention_judge
+        else (
+            paper_is_abstention(answer, abstention_answers)
+            if profile == PAPER_PROFILE
+            else is_abstention(answer, abstention_answers)
+        )
     )
+    if condition == "world0":
+        alternatives = (case.answer_world1, *case.aliases_world1)
+    elif condition == "world1":
+        alternatives = (case.answer_world0, *case.aliases_world0)
+    else:
+        alternatives = ()
+    if condition == "ablated":
+        correct = abstained
+    elif answer_judge:
+        correct = answer_judge(
+            answer,
+            expected or "",
+            case.aliases_for(condition),
+            alternatives,
+        )
+    elif profile == PAPER_PROFILE:
+        correct = paper_answer_matches(
+            answer,
+            expected or "",
+            case.aliases_for(condition),
+            alternatives,
+        )
+    else:
+        correct = answer_matches(answer, expected or "", case.aliases_for(condition))
     citation_set = set(citations)
     proof_set = set(proof)
+    if condition == "ablated":
+        proof_recall = None
+        proof_precision = None
+    else:
+        intersection = len(citation_set & proof_set)
+        proof_recall = intersection / len(proof_set)
+        proof_precision = intersection / len(citation_set) if citation_set else 0.0
     return ScoredResponse(
         condition=condition,
         answer=answer,
@@ -98,6 +214,8 @@ def score_response(
         latency_ms=latency_ms,
         error=error,
         raw=raw,
+        proof_citation_recall=proof_recall,
+        proof_citation_precision=proof_precision,
     )
 
 
@@ -179,4 +297,39 @@ def summarize(cases: tuple[CaseResult, ...]) -> Mapping[str, MetricResult]:
             n=len(cases),
             wilson95=wilson_interval(count, len(cases)),
         )
+    return metrics
+
+
+def summarize_proof_metrics(
+    cases: tuple[CaseResult, ...],
+) -> Mapping[str, MeanMetricResult]:
+    """Macro-average paper-defined proof citation recall and precision by world."""
+
+    if not cases:
+        raise ValueError("cannot summarize an empty audit")
+    metrics: dict[str, MeanMetricResult] = {}
+    for condition in ("world0", "world1"):
+        responses = [
+            next(
+                response
+                for response in case.responses
+                if response.condition == condition
+            )
+            for case in cases
+        ]
+        for suffix, attribute in (
+            ("recall", "proof_citation_recall"),
+            ("precision", "proof_citation_precision"),
+        ):
+            values = [getattr(response, attribute) for response in responses]
+            if any(value is None for value in values):
+                raise ValueError(
+                    f"{condition} responses require proof citation {suffix}"
+                )
+            total = sum(float(value) for value in values)
+            metrics[f"{condition}_proof_citation_{suffix}"] = MeanMetricResult(
+                mean=total / len(values),
+                total=total,
+                n=len(values),
+            )
     return metrics

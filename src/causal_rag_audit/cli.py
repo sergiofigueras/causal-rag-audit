@@ -14,7 +14,7 @@ from .adapters import HttpTarget
 from .models import AuditReport
 from .reports import write_reports
 from .runner import AuditRunner
-from .scoring import METRIC_NAMES
+from .scoring import ALL_METRIC_NAMES, PAPER_PROFILE, SCORING_PROFILES
 from .validation import DatasetValidationError, load_dataset
 from .version import __version__
 
@@ -55,9 +55,10 @@ def _thresholds(values: list[str]) -> dict[str, float]:
         if "=" not in value:
             raise ValueError("--minimum must use METRIC=RATE")
         name, raw_rate = value.split("=", 1)
-        if name not in METRIC_NAMES:
+        if name not in ALL_METRIC_NAMES:
             raise ValueError(
-                f"unknown threshold metric {name!r}; choose from {', '.join(METRIC_NAMES)}"
+                f"unknown threshold metric {name!r}; "
+                f"choose from {', '.join(ALL_METRIC_NAMES)}"
             )
         try:
             rate = float(raw_rate)
@@ -92,6 +93,12 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument("--workers", type=int, default=1)
     run.add_argument("--timeout", type=float, default=60.0)
     run.add_argument(
+        "--scoring-profile",
+        choices=SCORING_PROFILES,
+        default=PAPER_PROFILE,
+        help="response parsing and answer/abstention policy (default: paper-v0.1)",
+    )
+    run.add_argument(
         "--header-from-env",
         action="append",
         default=[],
@@ -117,9 +124,14 @@ def _print_metrics(report: AuditReport) -> None:
     print(
         f"Audited {len(report.cases)} cases with {report.configuration['calls']} target calls."
     )
-    for name, metric in report.metrics.items():
-        print(f"  {name}: {metric.count}/{metric.n} ({metric.rate:.1%})")
-    print(f"  target_errors: {report.error_count}")
+    for name, binary_metric in report.metrics.items():
+        print(
+            f"  {name}: {binary_metric.count}/{binary_metric.n} "
+            f"({binary_metric.rate:.1%})"
+        )
+    for name, proof_metric in report.proof_metrics.items():
+        print(f"  {name}: {proof_metric.mean:.1%} (n={proof_metric.n})")
+    print(f"  response_issues: {report.error_count}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -151,15 +163,21 @@ def main(argv: list[str] | None = None) -> int:
             target_name=args.target_name or inferred_name,
             max_workers=args.workers,
             include_raw=args.include_raw,
+            scoring_profile=args.scoring_profile,
         ).run(dataset)
         json_path, markdown_path = write_reports(report, args.output)
         _print_metrics(report)
         print(f"Wrote {json_path} and {markdown_path}.")
 
+        def metric_rate(name: str) -> float:
+            if name in report.metrics:
+                return report.metrics[name].rate
+            return report.proof_metrics[name].mean
+
         failed = [
-            (name, report.metrics[name].rate, minimum)
+            (name, metric_rate(name), minimum)
             for name, minimum in thresholds.items()
-            if report.metrics[name].rate < minimum
+            if metric_rate(name) < minimum
         ]
         for name, actual, minimum in failed:
             print(

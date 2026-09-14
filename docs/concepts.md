@@ -14,7 +14,9 @@ The target sees the question, documents, and user metadata. It never receives th
 
 ## Per-case indicators
 
-Let `correct(w)` mean the output exactly matches the oracle or a predeclared alias in world `w`. Let `covers(w)` mean its cited ID set includes the annotated proof, `exact(w)` mean the cited set equals that proof, `abstains(a)` mean an allowed abstention is returned after ablation, and `valid(a)` mean all ablation citations still exist.
+Let `correct(w)` mean the output matches the oracle under the preregistered scoring profile or custom judge in world `w`. Let `covers(w)` mean its cited ID set includes the annotated proof, `exact(w)` mean the cited set equals that proof, `abstains(a)` mean an allowed abstention is returned after ablation, and `valid(a)` mean all ablation citations still exist.
+
+For each full world, proof citation recall is `|C ∩ G| / |G|` and proof citation precision is `|C ∩ G| / |C|`, with precision zero for empty citations when the proof is non-empty. Reports macro-average both quantities separately for world 0 and world 1.
 
 - **CRC / paired responsiveness:** `correct(0) AND correct(1) AND answer(0) != answer(1)`.
 - **ENA / ablation abstention:** `abstains(a)`.
@@ -32,9 +34,9 @@ Neither score should automatically be treated as a universal quality metric. Cho
 
 ## Unit of intervention
 
-Version 0.1 intervenes on a caller-supplied set of documents. This clean boundary lets the same evaluator wrap many generators, but it means default results describe **generation conditional on controlled context**, not the quality of a production retriever.
+Version 0.2 intervenes on a caller-supplied set of documents. This clean boundary lets the same evaluator wrap many generators, but it means default results describe **generation conditional on controlled context**, not the quality of a production retriever.
 
-An end-to-end experiment is possible only when the target adapter can create an isolated corpus/index for each call, retrieve from it, and return stable source IDs. That lifecycle belongs to the integration in v0.1 and must not leak state between worlds.
+An end-to-end experiment is possible only when the target adapter can create an isolated corpus/index for each call, retrieve from it, and return stable source IDs. That lifecycle belongs to the integration in v0.2 and must not leak state between worlds.
 
 ## Valid conclusion
 

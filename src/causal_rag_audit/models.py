@@ -115,8 +115,12 @@ class AuditDataset:
     description: str = ""
     abstention_answers: tuple[str, ...] = (
         "INSUFFICIENT",
-        "UNKNOWN",
-        "NOT ENOUGH INFORMATION",
+        "not specified",
+        "not provided",
+        "cannot determine",
+        "cannot be determined",
+        "unable to determine",
+        "indeterminate",
     )
     metadata: Mapping[str, Any] = field(default_factory=dict)
     schema_version: int = 1
@@ -156,6 +160,8 @@ class TargetResponse:
     citations: tuple[str, ...]
     raw: Any = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    format_valid: bool = True
+    format_error: str | None = None
 
 
 @dataclass(frozen=True)
@@ -176,6 +182,8 @@ class ScoredResponse:
     latency_ms: float
     error: str | None = None
     raw: Any = None
+    proof_citation_recall: float | None = None
+    proof_citation_precision: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         data = {
@@ -189,6 +197,8 @@ class ScoredResponse:
             "citation_complete": self.citation_complete,
             "citation_exact": self.citation_exact,
             "citation_valid": self.citation_valid,
+            "proof_citation_recall": self.proof_citation_recall,
+            "proof_citation_precision": self.proof_citation_precision,
             "format_valid": self.format_valid,
             "latency_ms": round(self.latency_ms, 3),
             "error": self.error,
@@ -235,6 +245,28 @@ class MetricResult:
 
 
 @dataclass(frozen=True)
+class MeanMetricResult:
+    """A fractional metric macro-averaged across audit cases."""
+
+    mean: float
+    total: float
+    n: int
+
+    @property
+    def rate(self) -> float:
+        """Expose a rate alias so CLI thresholds work across metric families."""
+
+        return self.mean
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "mean": self.mean,
+            "total": self.total,
+            "n": self.n,
+        }
+
+
+@dataclass(frozen=True)
 class AuditReport:
     """Complete machine-readable output of one audit run."""
 
@@ -246,6 +278,7 @@ class AuditReport:
     configuration: Mapping[str, Any]
     provenance: Mapping[str, Any]
     metrics: Mapping[str, MetricResult]
+    proof_metrics: Mapping[str, MeanMetricResult]
     cases: tuple[CaseResult, ...]
 
     @property
@@ -271,6 +304,9 @@ class AuditReport:
             "provenance": dict(self.provenance),
             "metrics": {
                 name: metric.to_dict() for name, metric in self.metrics.items()
+            },
+            "proof_metrics": {
+                name: metric.to_dict() for name, metric in self.proof_metrics.items()
             },
             "error_count": self.error_count,
             "cases": [case.to_dict() for case in self.cases],

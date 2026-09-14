@@ -16,21 +16,34 @@ def report_as_markdown(report: AuditReport) -> str:
         "",
         f"- Target: `{report.target_name}`",
         f"- Framework: `{report.framework_version}`",
+        f"- Scoring profile: `{report.configuration['scoring_profile']}`",
         f"- Dataset SHA-256: `{report.dataset_fingerprint}`",
         f"- Cases: {len(report.cases)}",
-        f"- Target errors: {report.error_count}",
+        f"- Response issues: {report.error_count}",
         "",
         "## Metrics",
         "",
         "| Metric | Result | Wilson 95% interval |",
         "|---|---:|---:|",
     ]
-    for name, metric in report.metrics.items():
-        low, high = metric.wilson95
+    for name, binary_metric in report.metrics.items():
+        low, high = binary_metric.wilson95
         lines.append(
-            f"| `{name}` | {metric.count}/{metric.n} ({metric.rate:.1%}) | "
+            f"| `{name}` | {binary_metric.count}/{binary_metric.n} "
+            f"({binary_metric.rate:.1%}) | "
             f"{low:.1%}–{high:.1%} |"
         )
+    lines.extend(
+        [
+            "",
+            "## Proof citation metrics",
+            "",
+            "| Metric | Macro mean | N |",
+            "|---|---:|---:|",
+        ]
+    )
+    for name, proof_metric in report.proof_metrics.items():
+        lines.append(f"| `{name}` | {proof_metric.mean:.1%} | {proof_metric.n} |")
     lines.extend(
         [
             "",

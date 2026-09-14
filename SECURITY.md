@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-The latest tagged release receives security fixes. Version 0.1 is an alpha API and may receive breaking changes only through a new minor release.
+The latest tagged release receives security fixes. Version 0.2 is an alpha API and may receive breaking changes only through a new minor release.
 
 ## Reporting a vulnerability
 

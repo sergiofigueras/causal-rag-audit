@@ -2,6 +2,8 @@
 
 The stable boundary is intentionally small: controlled documents go in; one answer and stable document IDs come out. The snippets below show adapter shapes, not endorsements of a particular RAG library.
 
+Choose `paper-v0.1` for the manuscript's `D<number>` response convention or `strict-exact` for arbitrary stable IDs. If you use UUIDs, URLs, or framework-native node IDs, select `strict-exact` explicitly.
+
 ## Existing keyword function
 
 ```python
@@ -85,9 +87,11 @@ causal-rag-audit run \
   --dataset regression-audit.json \
   --target my_package.audit_adapter:target \
   --output artifacts/causal-audit \
+  --scoring-profile strict-exact \
   --minimum paired_responsiveness=0.95 \
   --minimum ablation_abstention=0.95 \
-  --minimum coverage_causal_evidence_score=0.90
+  --minimum coverage_causal_evidence_score=0.90 \
+  --minimum world0_proof_citation_precision=0.90
 ```
 
 Thresholds should be fixed from product risk and a reviewed baseline, not selected after inspecting the candidate run. Archive `report.json`, record model/prompt/index versions through `target_metadata` in the Python API, and repeat stochastic targets enough times to characterize variability.

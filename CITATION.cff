@@ -5,12 +5,12 @@ type: software
 authors:
   - given-names: "Sergio Luiz"
     family-names: "Wermuth Figueras"
-version: 0.1.0
+version: 0.2.0
 date-released: 2026-09-14
 license: MIT
 repository-code: "https://github.com/sergiofigueras/causal-rag-audit"
-repository-artifact: "https://github.com/sergiofigueras/causal-rag-audit/releases/tag/v0.1.0"
-url: "https://github.com/sergiofigueras/causal-rag-audit/releases/tag/v0.1.0"
+repository-artifact: "https://github.com/sergiofigueras/causal-rag-audit/releases/tag/v0.2.0"
+url: "https://github.com/sergiofigueras/causal-rag-audit/releases/tag/v0.2.0"
 preferred-citation:
   type: article
   title: "Beyond Citation Entailment: Causal Evidence Audits for Retrieval-Augmented Language Models"
