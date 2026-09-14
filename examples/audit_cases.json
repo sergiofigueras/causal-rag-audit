@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "name": "two-case-demo",
+  "description": "Small synthetic audit for learning the protocol; not a scientific benchmark.",
+  "abstention_answers": [
+    "INSUFFICIENT"
+  ],
+  "metadata": {
+    "license": "MIT",
+    "purpose": "documentation"
+  },
+  "cases": [
+    {
+      "id": "direct-coolant",
+      "question": "Which coolant does Reactor Vega use?",
+      "world0": [
+        {
+          "id": "D1",
+          "text": "Reactor Vega uses the coolant Argon-X.",
+          "metadata": {
+            "source": "operations-manual"
+          }
+        },
+        {
+          "id": "D2",
+          "text": "Reactor Vega is inspected every Monday.",
+          "metadata": {
+            "source": "inspection-calendar"
+          }
+        }
+      ],
+      "world1": [
+        {
+          "id": "D1",
+          "text": "Reactor Vega uses the coolant Neon-Y.",
+          "metadata": {
+            "source": "operations-manual"
+          }
+        },
+        {
+          "id": "D2",
+          "text": "Reactor Vega is inspected every Monday.",
+          "metadata": {
+            "source": "inspection-calendar"
+          }
+        }
+      ],
+      "answers": {
+        "world0": "Argon-X",
+        "world1": "Neon-Y"
+      },
+      "proofs": {
+        "world0": ["D1"],
+        "world1": ["D1"]
+      },
+      "ablate_document_ids": ["D1"],
+      "causal_change_ids": ["D1"],
+      "nuisance_change_ids": [],
+      "answer_aliases": {
+        "world0": [],
+        "world1": []
+      },
+      "metadata": {
+        "reasoning": "direct"
+      }
+    },
+    {
+      "id": "two-hop-depot",
+      "question": "In which region is Courier Vela's destination depot?",
+      "world0": [
+        {
+          "id": "D1",
+          "text": "Courier Vela delivers to the depot named Aldermere.",
+          "metadata": {
+            "source": "dispatch-record"
+          }
+        },
+        {
+          "id": "D2",
+          "text": "The Aldermere depot is in the region Galdite.",
+          "metadata": {
+            "source": "depot-directory"
+          }
+        },
+        {
+          "id": "D3",
+          "text": "The Bramblecross depot is in the region Hesper.",
+          "metadata": {
+            "source": "depot-directory"
+          }
+        }
+      ],
+      "world1": [
+        {
+          "id": "D1",
+          "text": "Courier Vela delivers to the depot named Bramblecross.",
+          "metadata": {
+            "source": "dispatch-record"
+          }
+        },
+        {
+          "id": "D2",
+          "text": "The Aldermere depot is in the region Galdite.",
+          "metadata": {
+            "source": "depot-directory"
+          }
+        },
+        {
+          "id": "D3",
+          "text": "The Bramblecross depot is in the region Hesper.",
+          "metadata": {
+            "source": "depot-directory"
+          }
+        }
+      ],
+      "answers": {
+        "world0": "Galdite",
+        "world1": "Hesper"
+      },
+      "proofs": {
+        "world0": ["D1", "D2"],
+        "world1": ["D1", "D3"]
+      },
+      "ablate_document_ids": ["D1"],
+      "causal_change_ids": ["D1"],
+      "nuisance_change_ids": [],
+      "answer_aliases": {
+        "world0": [],
+        "world1": []
+      },
+      "metadata": {
+        "reasoning": "two-hop"
+      }
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sergiofigueras/causal-rag-audit/blob/main/schema/audit-dataset-v1.schema.json",
+  "title": "Causal RAG Audit dataset",
+  "description": "Structural schema. Cross-world causal constraints are enforced by `causal-rag-audit validate`.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "name", "cases"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "name": {"$ref": "#/$defs/nonEmptyString"},
+    "description": {"type": "string"},
+    "abstention_answers": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/nonEmptyString"}
+    },
+    "metadata": {"type": "object"},
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/case"}
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {"type": "string", "minLength": 1, "pattern": ".*\\S.*"},
+    "uniqueIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/nonEmptyString"}
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text"],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmptyString"},
+        "text": {"$ref": "#/$defs/nonEmptyString"},
+        "metadata": {"type": "object"}
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "question", "world0", "world1", "answers", "proofs",
+        "ablate_document_ids", "causal_change_ids"
+      ],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmptyString"},
+        "question": {"$ref": "#/$defs/nonEmptyString"},
+        "world0": {
+          "type": "array", "minItems": 1, "items": {"$ref": "#/$defs/document"}
+        },
+        "world1": {
+          "type": "array", "minItems": 1, "items": {"$ref": "#/$defs/document"}
+        },
+        "answers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["world0", "world1"],
+          "properties": {
+            "world0": {"$ref": "#/$defs/nonEmptyString"},
+            "world1": {"$ref": "#/$defs/nonEmptyString"}
+          }
+        },
+        "proofs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["world0", "world1"],
+          "properties": {
+            "world0": {"allOf": [{"$ref": "#/$defs/uniqueIds"}, {"minItems": 1}]},
+            "world1": {"allOf": [{"$ref": "#/$defs/uniqueIds"}, {"minItems": 1}]}
+          }
+        },
+        "ablate_document_ids": {"allOf": [{"$ref": "#/$defs/uniqueIds"}, {"minItems": 1}]},
+        "causal_change_ids": {"allOf": [{"$ref": "#/$defs/uniqueIds"}, {"minItems": 1}]},
+        "nuisance_change_ids": {"$ref": "#/$defs/uniqueIds"},
+        "answer_aliases": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "world0": {"$ref": "#/$defs/uniqueIds"},
+            "world1": {"$ref": "#/$defs/uniqueIds"}
+          }
+        },
+        "metadata": {"type": "object"}
+      }
+    }
+  }
+}

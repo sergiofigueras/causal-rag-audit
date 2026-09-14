@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "causal-rag-audit"
+version = "0.1.0"
+description = "Intervention-based evaluation of whether RAG systems rely on their cited evidence"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+  { name = "Sergio Luiz Wermuth Figueras" }
+]
+keywords = [
+  "rag",
+  "evaluation",
+  "causal-inference",
+  "groundedness",
+  "llm",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/sergiofigueras/causal-rag-audit"
+Documentation = "https://github.com/sergiofigueras/causal-rag-audit#readme"
+Repository = "https://github.com/sergiofigueras/causal-rag-audit"
+Issues = "https://github.com/sergiofigueras/causal-rag-audit/issues"
+Research = "https://github.com/sergiofigueras/causal-evidence-audit"
+
+[project.scripts]
+causal-rag-audit = "causal_rag_audit.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+causal_rag_audit = ["py.typed"]
