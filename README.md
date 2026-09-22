@@ -4,7 +4,7 @@
 [![Python 3.10–3.14](https://img.shields.io/badge/python-3.10%E2%80%933.14-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-`causal-rag-audit` tests whether a RAG answerer *behaviorally relies* on the evidence it receives. It runs the same question in three controlled conditions:
+`causal-rag-audit` tests whether a RAG answerer *behaviorally relies* on the evidence it receives. The published CEA v0.1 protocol runs the same question in three controlled conditions:
 
 1. **Original world:** the answer is supported by an annotated proof.
 2. **Counterfactual world:** a minimal evidence change makes a different answer correct.
@@ -14,7 +14,7 @@ This catches a failure that ordinary groundedness evaluation can miss: a system 
 
 The framework wraps an existing RAG answerer. It does **not** build a retriever, call a particular model vendor, or claim to identify causes inside a neural network.
 
-> **Status:** v0.2 is an alpha research implementation. Its API and dataset schema are versioned, but may evolve with empirical use.
+> **Status:** v0.3.0 is an unreleased alpha development version. It adds the experimental CEA-Extended schema v2 while keeping schema v1, the `paper-v0.1` default profile, and the 384-generation reproduction unchanged. The v2 extension is a proposed protocol, not a new empirical result.
 
 ## Quick start
 
@@ -160,6 +160,8 @@ Validation goes beyond the included [JSON Schema](schema/audit-dataset-v1.schema
 
 Good audit cases require domain expertise. A schema-valid case can still be scientifically invalid if another retained document supports the answer or the two worlds differ in an uncontrolled way. Follow the [authoring protocol](docs/authoring-audits.md) and have a second reviewer inspect the cases.
 
+For CEA-Extended, start from [`datasets/cea-extended-demo.json`](datasets/cea-extended-demo.json). Schema v2 declares multiple answer-changing counterfactuals, answer-preserving nuisance edits, evidence redundancy, a true ablation, and an explicit conflict policy in every case. See the [v2 protocol and migration guide](docs/cea-extended-v2.md). With arbitrary document IDs, use `--scoring-profile strict-exact`; the CLI keeps `paper-v0.1` as its default for v1 reproducibility.
+
 ## Metrics
 
 Every metric is a hard per-case indicator, macro-averaged over cases with a Wilson 95% interval.
@@ -177,7 +179,7 @@ Every metric is a hard per-case indicator, macro-averaged over cases with a Wils
 | `world0/1_proof_citation_recall` (PCR) | Macro mean of the fraction of each proof set that was cited. |
 | `world0/1_proof_citation_precision` (PCP) | Macro mean of the fraction of emitted citations belonging to the proof set. |
 
-PCR and PCP are reported as fractional macro means; the hard binary metrics include Wilson 95% intervals. Coverage CES allows extra valid citations in full worlds; strict CES rejects them. Both are intentionally conjunctive: a case passes only when all required behaviors occur together. Read the [concepts and metric rationale](docs/concepts.md) before interpreting results.
+PCR and PCP are reported as fractional macro means; the hard binary metrics include Wilson 95% intervals. Coverage CES allows extra valid citations in full worlds; strict CES rejects them. Both are intentionally conjunctive: a case passes only when all required behaviors occur together. V2 reports distinct `extended_*` joint metrics that require all declared conditions and valid response formatting; it does not overwrite the v1 metrics. Wilson intervals treat cases as independent sampling units and do not account for shared templates or domain clusters. Read the [concepts and metric rationale](docs/concepts.md) before interpreting results.
 
 ## Where it works
 
@@ -194,16 +196,16 @@ It can wrap local models, hosted models, deterministic pipelines, and vendor-neu
 
 ## Where it does not work
 
-Do not use v0.2 as evidence for claims it does not test:
+Do not use either protocol as evidence for claims it does not test:
 
 - **No controlled context:** it cannot intervene on a service that chooses hidden context and exposes no injection boundary.
 - **No stable citations:** it does not infer evidence provenance from free-form prose.
 - **Open-ended judgment:** ambiguous, creative, opinion, or many-valid-answer tasks require a preregistered custom judge and human validation; a judge does not remove task ambiguity.
 - **Source truth or quality:** behavioral sensitivity to a document does not make that document true, current, safe, or authoritative.
 - **Internal model causality:** the audit observes input-output behavior; it does not locate neural mechanisms or prove model intent.
-- **Retriever quality:** the default protocol audits the answerer over supplied documents. End-to-end retrieval requires your adapter to build/query an isolated index for every world; v0.2 does not manage that lifecycle.
+- **Retriever quality:** the default protocol audits the answerer over supplied documents. End-to-end retrieval requires your adapter to build/query an isolated index for every world; the framework does not manage that lifecycle.
 - **Production traffic guarantees:** synthetic audit performance does not estimate all live queries, populations, or distribution shifts.
-- **Claim-level/multimodal evidence:** v0.2 scores short answers and document IDs, not spans, images, audio, tables, or multi-claim citation alignment.
+- **Claim-level/multimodal evidence:** it scores short answers and document IDs, not spans, images, audio, tables, or multi-claim citation alignment.
 - **Async callable targets:** direct callables must be synchronous. Put async applications behind a synchronous adapter or HTTP endpoint.
 
 More detail is in [limitations and valid claims](docs/limitations.md).

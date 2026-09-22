@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from .adapters import HttpTarget
+from .extended import V2_METRIC_NAMES, V2_PROOF_METRIC_NAMES, ExtendedDataset
 from .models import AuditReport
 from .reports import write_reports
 from .runner import AuditRunner
@@ -55,10 +56,10 @@ def _thresholds(values: list[str]) -> dict[str, float]:
         if "=" not in value:
             raise ValueError("--minimum must use METRIC=RATE")
         name, raw_rate = value.split("=", 1)
-        if name not in ALL_METRIC_NAMES:
+        accepted = (*ALL_METRIC_NAMES, *V2_METRIC_NAMES, *V2_PROOF_METRIC_NAMES)
+        if name not in accepted:
             raise ValueError(
-                f"unknown threshold metric {name!r}; "
-                f"choose from {', '.join(ALL_METRIC_NAMES)}"
+                f"unknown threshold metric {name!r}; choose from {', '.join(accepted)}"
             )
         try:
             rate = float(raw_rate)
@@ -140,9 +141,14 @@ def main(argv: list[str] | None = None) -> int:
     try:
         dataset = load_dataset(args.dataset)
         if args.command == "validate":
+            calls = (
+                sum(len(case.conditions) for case in dataset.cases)
+                if isinstance(dataset, ExtendedDataset)
+                else len(dataset.cases) * 3
+            )
             print(
                 f"Valid dataset {dataset.name!r}: {len(dataset.cases)} cases, "
-                f"{len(dataset.cases) * 3} target calls per audit."
+                f"{calls} target calls per audit."
             )
             return 0
 
@@ -165,6 +171,13 @@ def main(argv: list[str] | None = None) -> int:
             include_raw=args.include_raw,
             scoring_profile=args.scoring_profile,
         ).run(dataset)
+        unavailable = sorted(
+            set(thresholds) - set(report.metrics) - set(report.proof_metrics)
+        )
+        if unavailable:
+            raise ValueError(
+                f"metrics unavailable for schema v{dataset.schema_version}: {', '.join(unavailable)}"
+            )
         json_path, markdown_path = write_reports(report, args.output)
         _print_metrics(report)
         print(f"Wrote {json_path} and {markdown_path}.")
@@ -172,7 +185,11 @@ def main(argv: list[str] | None = None) -> int:
         def metric_rate(name: str) -> float:
             if name in report.metrics:
                 return report.metrics[name].rate
-            return report.proof_metrics[name].mean
+            if name in report.proof_metrics:
+                return report.proof_metrics[name].mean
+            raise ValueError(
+                f"metric {name!r} is unavailable for schema v{dataset.schema_version}"
+            )
 
         failed = [
             (name, metric_rate(name), minimum)

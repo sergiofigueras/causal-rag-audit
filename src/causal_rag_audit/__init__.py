@@ -2,6 +2,7 @@
 
 from .adapters import HttpTarget, KeywordTarget
 from .api import audit
+from .extended import ExtendedCase, ExtendedCondition, ExtendedDataset
 from .models import (
     AuditCase,
     AuditDataset,
@@ -34,6 +35,9 @@ __all__ = [
     "AuditRunner",
     "DatasetValidationError",
     "Document",
+    "ExtendedCase",
+    "ExtendedCondition",
+    "ExtendedDataset",
     "HttpTarget",
     "KeywordTarget",
     "MeanMetricResult",

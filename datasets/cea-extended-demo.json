@@ -1,0 +1,133 @@
+{
+  "schema_version": 2,
+  "name": "cea-extended-demo",
+  "description": "Synthetic route and material example with independently reviewable proof paths.",
+  "abstention_answers": ["INSUFFICIENT"],
+  "cases": [
+    {
+      "id": "route-001",
+      "question": "Which material is assigned to Vela?",
+      "conditions": [
+        {
+          "id": "baseline",
+          "family": "baseline",
+          "documents": [
+            {"id": "D1", "text": "Current registry: Vela is routed to Aldermere.", "metadata": {"authority": "current"}},
+            {"id": "D2", "text": "Aldermere uses Galdite."},
+            {"id": "D3", "text": "Independent material ledger: Aldermere uses Galdite."},
+            {"id": "D4", "text": "Bramblecross uses Hesper."},
+            {"id": "D5", "text": "Cedarholm uses Orphic."},
+            {"id": "D6", "text": "Archive: no Vela route recorded."}
+          ],
+          "expected_answer": "Galdite",
+          "proof_sets": [["D1", "D2"], ["D1", "D3"]],
+          "changed_document_ids": [],
+          "removed_document_ids": [],
+          "rationale": "D1 joins Vela to Aldermere; D2 and D3 independently identify Galdite. A domain reviewer must verify both claims."
+        },
+        {
+          "id": "route-to-bramblecross",
+          "family": "counterfactual",
+          "documents": [
+            {"id": "D1", "text": "Current registry: Vela is routed to Bramblecross.", "metadata": {"authority": "current"}},
+            {"id": "D2", "text": "Aldermere uses Galdite."},
+            {"id": "D3", "text": "Independent material ledger: Aldermere uses Galdite."},
+            {"id": "D4", "text": "Bramblecross uses Hesper."},
+            {"id": "D5", "text": "Cedarholm uses Orphic."},
+            {"id": "D6", "text": "Archive: no Vela route recorded."}
+          ],
+          "expected_answer": "Hesper",
+          "proof_sets": [["D1", "D4"]],
+          "changed_document_ids": ["D1"],
+          "removed_document_ids": [],
+          "rationale": "The edited D1 now routes Vela to Bramblecross; D4 identifies Hesper."
+        },
+        {
+          "id": "route-to-cedarholm",
+          "family": "counterfactual",
+          "documents": [
+            {"id": "D1", "text": "Current registry: Vela is routed to Cedarholm.", "metadata": {"authority": "current"}},
+            {"id": "D2", "text": "Aldermere uses Galdite."},
+            {"id": "D3", "text": "Independent material ledger: Aldermere uses Galdite."},
+            {"id": "D4", "text": "Bramblecross uses Hesper."},
+            {"id": "D5", "text": "Cedarholm uses Orphic."},
+            {"id": "D6", "text": "Archive: no Vela route recorded."}
+          ],
+          "expected_answer": "Orphic",
+          "proof_sets": [["D1", "D5"]],
+          "changed_document_ids": ["D1"],
+          "removed_document_ids": [],
+          "rationale": "The edited D1 now routes Vela to Cedarholm; D5 identifies Orphic."
+        },
+        {
+          "id": "reordered-metadata",
+          "family": "nuisance",
+          "documents": [
+            {"id": "D6", "text": "Archive: no Vela route recorded."},
+            {"id": "D5", "text": "Cedarholm uses Orphic."},
+            {"id": "D4", "text": "Bramblecross uses Hesper.", "metadata": {"display_rank": 1}},
+            {"id": "D3", "text": "Independent material ledger: Aldermere uses Galdite."},
+            {"id": "D2", "text": "Aldermere uses Galdite."},
+            {"id": "D1", "text": "Current registry: Vela is routed to Aldermere.", "metadata": {"authority": "current"}}
+          ],
+          "expected_answer": "Galdite",
+          "proof_sets": [["D1", "D2"], ["D1", "D3"]],
+          "changed_document_ids": ["D4"],
+          "removed_document_ids": [],
+          "rationale": "Only order and irrelevant D4 display metadata change; both proof paths remain intact."
+        },
+        {
+          "id": "remove-common-link",
+          "family": "ablation",
+          "documents": [
+            {"id": "D2", "text": "Aldermere uses Galdite."},
+            {"id": "D3", "text": "Independent material ledger: Aldermere uses Galdite."},
+            {"id": "D4", "text": "Bramblecross uses Hesper."},
+            {"id": "D5", "text": "Cedarholm uses Orphic."},
+            {"id": "D6", "text": "Archive: no Vela route recorded."}
+          ],
+          "expected_answer": null,
+          "proof_sets": [],
+          "changed_document_ids": [],
+          "removed_document_ids": ["D1"],
+          "rationale": "D1 is common to both independent baseline proof paths, so removing it leaves no route for Vela."
+        },
+        {
+          "id": "remove-one-ledger",
+          "family": "redundancy",
+          "documents": [
+            {"id": "D1", "text": "Current registry: Vela is routed to Aldermere.", "metadata": {"authority": "current"}},
+            {"id": "D3", "text": "Independent material ledger: Aldermere uses Galdite."},
+            {"id": "D4", "text": "Bramblecross uses Hesper."},
+            {"id": "D5", "text": "Cedarholm uses Orphic."},
+            {"id": "D6", "text": "Archive: no Vela route recorded."}
+          ],
+          "expected_answer": "Galdite",
+          "proof_sets": [["D1", "D3"]],
+          "changed_document_ids": [],
+          "removed_document_ids": ["D2"],
+          "rationale": "Removing D2 breaks one path, while D1 and independent D3 still prove Galdite."
+        },
+        {
+          "id": "conflicting-archive",
+          "family": "conflict",
+          "documents": [
+            {"id": "D1", "text": "Current registry: Vela is routed to Aldermere.", "metadata": {"authority": "current"}},
+            {"id": "D2", "text": "Aldermere uses Galdite."},
+            {"id": "D3", "text": "Independent material ledger: Aldermere uses Galdite."},
+            {"id": "D4", "text": "Bramblecross uses Hesper."},
+            {"id": "D5", "text": "Cedarholm uses Orphic."},
+            {"id": "D6", "text": "Archive: Vela is routed to Bramblecross."}
+          ],
+          "expected_answer": "Galdite",
+          "proof_sets": [["D1", "D2", "D6"], ["D1", "D3", "D6"]],
+          "changed_document_ids": ["D6"],
+          "removed_document_ids": [],
+          "resolution_policy": "authority",
+          "authority_document_ids": ["D1"],
+          "rationale": "D1 is the current registry and outranks archived D6; D2 or D3 then determines Galdite. Citations include the conflict being resolved."
+        }
+      ]
+    }
+  ]
+}

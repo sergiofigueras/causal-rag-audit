@@ -280,6 +280,8 @@ class AuditReport:
     metrics: Mapping[str, MetricResult]
     proof_metrics: Mapping[str, MeanMetricResult]
     cases: tuple[CaseResult, ...]
+    report_schema_version: int = 1
+    condition_coverage: Mapping[str, int] = field(default_factory=dict)
 
     @property
     def error_count(self) -> int:
@@ -291,7 +293,7 @@ class AuditReport:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "schema_version": 1,
+            "schema_version": self.report_schema_version,
             "generated_at_utc": self.generated_at_utc,
             "framework_version": self.framework_version,
             "dataset": {
@@ -310,4 +312,9 @@ class AuditReport:
             },
             "error_count": self.error_count,
             "cases": [case.to_dict() for case in self.cases],
+            **(
+                {"condition_coverage": dict(self.condition_coverage)}
+                if self.report_schema_version == 2
+                else {}
+            ),
         }

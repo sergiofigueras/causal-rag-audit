@@ -5,10 +5,13 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .models import AuditCase, AuditDataset, Document
 from .scoring import canonical_answer
+
+if TYPE_CHECKING:
+    from .extended import ExtendedDataset
 
 ROOT_KEYS = {
     "schema_version",
@@ -225,10 +228,14 @@ def _parse_case(raw: Any, index: int) -> AuditCase:
     )
 
 
-def dataset_from_mapping(raw: Mapping[str, Any]) -> AuditDataset:
+def dataset_from_mapping(raw: Mapping[str, Any]) -> AuditDataset | ExtendedDataset:
     """Validate and construct an :class:`AuditDataset` from decoded JSON."""
 
     value = _mapping(raw, "dataset")
+    if value.get("schema_version") == 2:
+        from .extended import dataset_from_mapping as extended_dataset_from_mapping
+
+        return extended_dataset_from_mapping(value)
     _known_keys(value, ROOT_KEYS, "dataset")
     if value.get("schema_version") != 1:
         raise DatasetValidationError("dataset.schema_version must equal 1")
@@ -276,7 +283,7 @@ def dataset_from_mapping(raw: Mapping[str, Any]) -> AuditDataset:
     )
 
 
-def load_dataset(path: str | Path) -> AuditDataset:
+def load_dataset(path: str | Path) -> AuditDataset | ExtendedDataset:
     """Load a UTF-8 JSON audit dataset and validate the full protocol contract."""
 
     source = Path(path)

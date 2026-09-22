@@ -34,8 +34,12 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Validate example dataset
         run: python -m causal_rag_audit validate examples/audit_cases.json
+      - name: Validate CEA-Extended dataset
+        run: python -m causal_rag_audit validate datasets/cea-extended-demo.json
       - name: Run strict demo gate
         run: python -m causal_rag_audit run --dataset examples/audit_cases.json --target examples.demo_rag:grounded_rag --output "${{ runner.temp }}/causal-audit" --minimum strict_causal_evidence_score=1.0
+      - name: Run CEA-Extended strict gate
+        run: python -m causal_rag_audit run --dataset datasets/cea-extended-demo.json --target examples.extended_rag:grounded_rag --scoring-profile strict-exact --output "${{ runner.temp }}/causal-extended-audit" --minimum extended_strict_causal_evidence_score=1.0
 
   ci:
     name: CI

@@ -9,17 +9,23 @@ import platform
 import re
 import sys
 import time
+from collections import Counter
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any
 
+from .extended import V2_METRIC_NAMES, ExtendedCase, ExtendedDataset
+from .extended import evaluate_case as evaluate_extended_case
+from .extended import score_response as score_extended_response
 from .models import (
     CONDITIONS,
     AuditCase,
     AuditDataset,
     AuditReport,
     CaseResult,
+    MeanMetricResult,
+    MetricResult,
     ScoredResponse,
     TargetRequest,
     TargetResponse,
@@ -33,6 +39,7 @@ from .scoring import (
     summarize,
     summarize_proof_metrics,
     validate_scoring_profile,
+    wilson_interval,
 )
 from .version import __version__
 
@@ -203,7 +210,7 @@ def coerce_response(
     return _strict_response(decoded_value, raw)
 
 
-def dataset_fingerprint(dataset: AuditDataset) -> str:
+def dataset_fingerprint(dataset: AuditDataset | ExtendedDataset) -> str:
     """Hash the canonical validated dataset representation."""
 
     payload = json.dumps(
@@ -243,7 +250,7 @@ class AuditRunner:
 
     def _invoke(
         self,
-        case: AuditCase,
+        case: AuditCase | ExtendedCase,
         condition: str,
         abstention_answers: tuple[str, ...],
     ) -> ScoredResponse:
@@ -272,6 +279,19 @@ class AuditRunner:
         except Exception as exc:  # noqa: BLE001
             error = f"{exc.__class__.__name__}: {exc}"
         latency_ms = (time.perf_counter() - started) * 1000
+        if isinstance(case, ExtendedCase):
+            return score_extended_response(
+                case,
+                condition,
+                response,
+                abstention_answers,
+                latency_ms,
+                error=error,
+                include_raw=self.include_raw,
+                scoring_profile=self.scoring_profile,
+                answer_judge=self.answer_judge,
+                abstention_judge=self.abstention_judge,
+            )
         return score_response(
             case,
             condition,
@@ -285,8 +305,11 @@ class AuditRunner:
             abstention_judge=self.abstention_judge,
         )
 
-    def run(self, dataset: AuditDataset) -> AuditReport:
+    def run(self, dataset: AuditDataset | ExtendedDataset) -> AuditReport:
         """Run three evidence conditions per case and return an immutable report."""
+
+        if isinstance(dataset, ExtendedDataset):
+            return self._run_extended(dataset)
 
         jobs = [
             (case_index, condition_index, case, condition)
@@ -344,4 +367,121 @@ class AuditRunner:
             metrics=summarize(finalized),
             proof_metrics=summarize_proof_metrics(finalized),
             cases=finalized,
+        )
+
+    def _run_extended(self, dataset: ExtendedDataset) -> AuditReport:
+        """Run the full declared intervention matrix for schema v2."""
+
+        jobs = [
+            (case_index, condition_index, case, condition.id)
+            for case_index, case in enumerate(dataset.cases)
+            for condition_index, condition in enumerate(case.conditions)
+        ]
+        scored: dict[tuple[int, int], ScoredResponse] = {}
+        if self.max_workers == 1:
+            for case_index, condition_index, case, condition_id in jobs:
+                scored[(case_index, condition_index)] = self._invoke(
+                    case, condition_id, dataset.abstention_answers
+                )
+        else:
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                futures = {
+                    executor.submit(
+                        self._invoke, case, condition_id, dataset.abstention_answers
+                    ): (case_index, condition_index)
+                    for case_index, condition_index, case, condition_id in jobs
+                }
+                for future in as_completed(futures):
+                    scored[futures[future]] = future.result()
+        finalized = tuple(
+            evaluate_extended_case(
+                case,
+                tuple(
+                    scored[(case_index, index)] for index in range(len(case.conditions))
+                ),
+            )
+            for case_index, case in enumerate(dataset.cases)
+        )
+        metrics = {
+            name: MetricResult(
+                rate=(count := sum(int(case.indicators[name]) for case in finalized))
+                / len(finalized),
+                count=count,
+                n=len(finalized),
+                wilson95=wilson_interval(count, len(finalized)),
+            )
+            for name in V2_METRIC_NAMES
+        }
+        proof_metrics: dict[str, MeanMetricResult] = {}
+        for family in (
+            None,
+            "baseline",
+            "counterfactual",
+            "nuisance",
+            "ablation",
+            "redundancy",
+            "conflict",
+        ):
+            for measure in ("recall", "precision"):
+                per_case = []
+                for case, case_result in zip(dataset.cases, finalized):
+                    families_by_id = {
+                        condition.id: condition.family for condition in case.conditions
+                    }
+                    values = [
+                        value
+                        for response in case_result.responses
+                        if (
+                            family is None
+                            or families_by_id[response.condition] == family
+                        )
+                        if (value := getattr(response, f"proof_citation_{measure}"))
+                        is not None
+                    ]
+                    if values:
+                        per_case.append(sum(values) / len(values))
+                if per_case:
+                    name = (
+                        f"{family}_proof_citation_{measure}"
+                        if family
+                        else f"extended_answerable_proof_citation_{measure}"
+                    )
+                    total = sum(per_case)
+                    proof_metrics[name] = MeanMetricResult(
+                        mean=total / len(per_case), total=total, n=len(per_case)
+                    )
+        family_counts = Counter(
+            condition.family for case in dataset.cases for condition in case.conditions
+        )
+        return AuditReport(
+            generated_at_utc=datetime.now(timezone.utc).isoformat(),
+            framework_version=__version__,
+            dataset_name=dataset.name,
+            dataset_fingerprint=dataset_fingerprint(dataset),
+            target_name=self.target_name,
+            configuration={
+                "conditions": {
+                    case.id: [condition.id for condition in case.conditions]
+                    for case in dataset.cases
+                },
+                "calls": len(jobs),
+                "max_workers": self.max_workers,
+                "include_raw": self.include_raw,
+                "abstention_answers": list(dataset.abstention_answers),
+                "scoring_profile": self.scoring_profile,
+                "answer_judge": getattr(self.answer_judge, "__name__", None),
+                "abstention_judge": getattr(self.abstention_judge, "__name__", None),
+            },
+            provenance={
+                "python": platform.python_version(),
+                "platform": platform.platform(),
+                "machine": platform.machine(),
+                "target_metadata": self.target_metadata,
+                "executable": sys.executable,
+            },
+            metrics=metrics,
+            proof_metrics=proof_metrics,
+            cases=finalized,
+            report_schema_version=2,
+            condition_coverage=dict(family_counts),
         )

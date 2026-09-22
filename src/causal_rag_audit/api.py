@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from .extended import ExtendedDataset
 from .models import AuditDataset, AuditReport
 from .runner import AuditRunner, Target
 from .scoring import PAPER_PROFILE, AbstentionJudge, AnswerJudge
@@ -14,7 +15,7 @@ from .validation import load_dataset
 
 def audit(
     target: Target,
-    dataset: AuditDataset | str | Path,
+    dataset: AuditDataset | ExtendedDataset | str | Path,
     *,
     target_name: str | None = None,
     max_workers: int = 1,
